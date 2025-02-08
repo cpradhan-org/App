@@ -134,6 +134,52 @@ pipeline {
                 }
             }
         }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker-creds', url: "") {
+                        sh "docker push chinmayapradhan/orbit-engine:$GIT_COMMIT"
+                    }
+                }
+            }
+        }
+        stage('Deploy') {
+            when {
+                expression { env.BRANCH_NAME.startsWith('feature/') }
+            }
+            steps {
+                script {
+                    sshagent(['ec2-server-key']) {
+                        sh '''
+                            ssh -o StrictHostKeyChecking=no ubuntu@3.140.244.188 "
+                                if sudo docker ps -a | grep -q "solar-system"; then
+                                    echo "Container found. Stopping..."
+                                      sudo docker stop "solar-system" && sudo docker rm "solar-system"
+                                    echo "Container stopped and removed."
+                                fi
+                                   sudo docker run --name solar-system \
+                                        -e MONGO_URI=$MONGO_URI \
+                                        -e MONGO_USERNAME=$MONGO_USERNAME \
+                                        -e MONGO_PASSWORD=$MONGO_PASSWORD \
+                                        -p 3000:3000 -d chinmayapradhan/orbit-engine:$GIT_COMMIT
+                            "
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Integration Testing - AWS EC2') {
+            steps {
+                script {
+                    sh 'printenv | grep -i branch'
+                    withAWS(credentials: 'aws-creds', region: 'us-east-2') {
+                        sh 'bash integration-testing-ec2.sh'
+                    }
+                }
+            }
+        }
     }
 
     post {
