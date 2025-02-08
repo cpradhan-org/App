@@ -145,9 +145,6 @@ pipeline {
             }
         }
         stage('Deploy') {
-            when {
-                branch 'feature/*'
-            }
             steps {
                 script {
                     sshagent(['ec2-server-key']) {
@@ -170,16 +167,16 @@ pipeline {
             }
         }
 
-        // stage('Integration Testing - AWS EC2') {
-        //     steps {
-        //         script {
-        //             sh 'printenv | grep -i branch'
-        //             withAWS(credentials: 'aws-creds', region: 'us-east-2') {
-        //                 sh 'bash integration-testing-ec2.sh'
-        //             }
-        //         }
-        //     }
-        // }
+        stage('Integration Testing - AWS EC2') {
+            steps {
+                script {
+                    sh 'printenv | grep -i branch'
+                    withAWS(credentials: 'aws-creds', region: 'us-east-2') {
+                        sh 'bash integration-testing-ec2.sh'
+                    }
+                }
+            }
+        }
     }
 
     // post {
