@@ -11,7 +11,7 @@ pipeline {
         MONGO_USERNAME = credentials('mongo-db-username')
         MONGO_PASSWORD = credentials('mongo-db-password')
         SONAR_SCANNER_HOME = tool 'sonarqube-scanner-610'
-        GITEA_TOKEN = credentials('gitea-api-token')
+        GITHUB_TOKEN = credentials('git-pat-token')
     }
 
     stages {
@@ -89,7 +89,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh "docker build -t chinmayapradhan/solar-system:$GIT_COMMIT ."
+                    sh "docker build -t chinmayapradhan/orbit-engine:$GIT_COMMIT ."
                 }
             }
         }
@@ -98,13 +98,13 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        trivy image chinmayapradhan/solar-system:$GIT_COMMIT \
+                        trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
                             --severity LOW,MEDIUM \
                             --exit-code 0 \
                             --quiet \
                             --format json -o trivy-image-MEDIUM-results.json
 
-                        trivy image chinmayapradhan/solar-system:$GIT_COMMIT \
+                        trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
                             --severity HIGH,CRITICAL \
                             --exit-code 1 \
                             --quiet \
