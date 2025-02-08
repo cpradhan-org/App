@@ -145,9 +145,9 @@ pipeline {
             }
         }
         stage('Deploy') {
-            // when {
-            //     expression { env.BRANCH_NAME.startsWith('feature/') }
-            // // }
+            when {
+                branch 'feature/*'
+            }
             steps {
                 script {
                     sshagent(['ec2-server-key']) {
