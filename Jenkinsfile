@@ -145,9 +145,9 @@ pipeline {
             }
         }
         stage('Deploy') {
-            when {
-                expression { env.BRANCH_NAME.startsWith('feature/') }
-            }
+            // when {
+            //     expression { env.BRANCH_NAME.startsWith('feature/') }
+            // // }
             steps {
                 script {
                     sshagent(['ec2-server-key']) {
@@ -155,7 +155,7 @@ pipeline {
                             ssh -o StrictHostKeyChecking=no ec2-user@18.188.247.9 "
                                 if sudo docker ps -a | grep -q "solar-system"; then
                                     echo "Container found. Stopping..."
-                                      sudo docker stop "solar-system" && sudo docker rm "solar-system"
+                                    sudo docker stop "solar-system" && sudo docker rm "solar-system"
                                     echo "Container stopped and removed."
                                 fi
                                    sudo docker run --name solar-system \
