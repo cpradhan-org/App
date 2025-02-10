@@ -15,76 +15,76 @@ pipeline {
     }
 
     stages {
-        // stage('Installing Dependencies') {
-        //     steps {
-        //         script {
-        //             sh 'npm install --no-audit'
-        //         }
-        //     }
-        // }
+        stage('Installing Dependencies') {
+            steps {
+                script {
+                    sh 'npm install --no-audit'
+                }
+            }
+        }
 
-        // stage('NPM Dependency Audit') {
-        //     steps {
-        //         script {
-        //             sh '''
-        //                 npm audit --audit-level=critical
-        //                 echo $?
-        //             '''
-        //         }
-        //     }
-        // }
-        // stage('OWASP Dependency Check') {
-        //     steps {
-        //         script {
-        //             dependencyCheck additionalArguments: '''
-        //                 --scan \'./\' 
-        //                 --out \'./\'  
-        //                 --format \'ALL\' 
-        //                 --disableYarnAudit \
-        //                 --prettyPrint''', odcInstallation: 'OWASP-DepCheck-11'
-        //             dependencyCheckPublisher failedTotalCritical: 3, pattern: 'dependency-check-report.xml', stopBuild: true
-        //         }
-        //     }
-        // }
+        stage('NPM Dependency Audit') {
+            steps {
+                script {
+                    sh '''
+                        npm audit --audit-level=critical
+                        echo $?
+                    '''
+                }
+            }
+        }
+        stage('OWASP Dependency Check') {
+            steps {
+                script {
+                    dependencyCheck additionalArguments: '''
+                        --scan \'./\' 
+                        --out \'./\'  
+                        --format \'ALL\' 
+                        --disableYarnAudit \
+                        --prettyPrint''', odcInstallation: 'OWASP-DepCheck-11'
+                    dependencyCheckPublisher failedTotalCritical: 3, pattern: 'dependency-check-report.xml', stopBuild: true
+                }
+            }
+        }
 
-        // stage('Unit Testing') {
-        //     steps {
-        //         script {
-        //             sh 'echo Colon-Separated - $MONGO_DB_CREDS'
-        //             sh 'echo Username - $MONGO_DB_CREDS_USR'
-        //             sh 'echo Password - $MONGO_DB_CREDS_PSW'
-        //             sh 'npm test'
-        //         }
-        //     }
-        // }
+        stage('Unit Testing') {
+            steps {
+                script {
+                    sh 'echo Colon-Separated - $MONGO_DB_CREDS'
+                    sh 'echo Username - $MONGO_DB_CREDS_USR'
+                    sh 'echo Password - $MONGO_DB_CREDS_PSW'
+                    sh 'npm test'
+                }
+            }
+        }
 
-        // stage('Code Coverage') {
-        //     steps {
-        //         script {
-        //             catchError(buildResult: 'SUCCESS', message: 'Oops! it will be fixed in future releases', stageResult: 'UNSTABLE') {
-        //                 sh 'npm run coverage'
-        //             }
-        //         }
-        //     }
-        // }
+        stage('Code Coverage') {
+            steps {
+                script {
+                    catchError(buildResult: 'SUCCESS', message: 'Oops! it will be fixed in future releases', stageResult: 'UNSTABLE') {
+                        sh 'npm run coverage'
+                    }
+                }
+            }
+        }
 
-        // stage('SAST - SonarQube') {
-        //     steps {
-        //         script {
-        //             timeout(time: 60, unit: 'SECONDS') {
-        //                 withSonarQubeEnv('sonar-qube-server') {
-        //                     sh '''
-        //                         $SONAR_SCANNER_HOME/bin/sonar-scanner \
-        //                            -Dsonar.projectKey=Solar-System-Project \
-        //                            -Dsonar.sources=app.js \
-        //                            -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
-        //                     '''
-        //                 }
-        //                 waitForQualityGate abortPipeline: true
-        //             }
-        //         }
-        //     }
-        // }
+        stage('SAST - SonarQube') {
+            steps {
+                script {
+                    timeout(time: 60, unit: 'SECONDS') {
+                        withSonarQubeEnv('sonar-qube-server') {
+                            sh '''
+                                $SONAR_SCANNER_HOME/bin/sonar-scanner \
+                                   -Dsonar.projectKey=Solar-System-Project \
+                                   -Dsonar.sources=app.js \
+                                   -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
+                            '''
+                        }
+                        waitForQualityGate abortPipeline: true
+                    }
+                }
+            }
+        }
 
         stage('Build Docker Image') {
             steps {
@@ -94,46 +94,46 @@ pipeline {
             }
         }
 
-        // stage('Trivy Vulnerability Scanner') {
-        //     steps {
-        //         script {
-        //             sh '''
-        //                 trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
-        //                     --severity LOW,MEDIUM \
-        //                     --exit-code 0 \
-        //                     --quiet \
-        //                     --format json -o trivy-image-MEDIUM-results.json
+        stage('Trivy Vulnerability Scanner') {
+            steps {
+                script {
+                    sh '''
+                        trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
+                            --severity LOW,MEDIUM \
+                            --exit-code 0 \
+                            --quiet \
+                            --format json -o trivy-image-MEDIUM-results.json
 
-        //                 trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
-        //                     --severity HIGH,CRITICAL \
-        //                     --exit-code 1 \
-        //                     --quiet \
-        //                     --format json -o trivy-image-CRITICAL-results.json
-        //             '''
-        //         }
-        //     }
-        //     post {
-        //         always {
-        //             sh '''
-        //                 trivy convert \
-        //                     --format template --template "@/usr/local/share/trivy/templates/html.tpl" \
-        //                     --output trivy-image-MEDIUM-results.html trivy-image-MEDIUM-results.json
+                        trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
+                            --severity HIGH,CRITICAL \
+                            --exit-code 1 \
+                            --quiet \
+                            --format json -o trivy-image-CRITICAL-results.json
+                    '''
+                }
+            }
+            post {
+                always {
+                    sh '''
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/html.tpl" \
+                            --output trivy-image-MEDIUM-results.html trivy-image-MEDIUM-results.json
                             
-        //                 trivy convert \
-        //                     --format template --template "@/usr/local/share/trivy/templates/html.tpl" \
-        //                     --output trivy-image-CRITICAL-results.html trivy-image-CRITICAL-results.json
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/html.tpl" \
+                            --output trivy-image-CRITICAL-results.html trivy-image-CRITICAL-results.json
 
-        //                 trivy convert \
-        //                     --format template --template "@/usr/local/share/trivy/templates/junit.tpl" \
-        //                     --output trivy-image-MEDIUM-results.xml  trivy-image-MEDIUM-results.json
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/junit.tpl" \
+                            --output trivy-image-MEDIUM-results.xml  trivy-image-MEDIUM-results.json
 
-        //                 trivy convert \
-        //                     --format template --template "@/usr/local/share/trivy/templates/junit.tpl" \
-        //                     --output trivy-image-CRITICAL-results.xml trivy-image-CRITICAL-results.json
-        //             '''
-        //         }
-        //     }
-        // }
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/junit.tpl" \
+                            --output trivy-image-CRITICAL-results.xml trivy-image-CRITICAL-results.json
+                    '''
+                }
+            }
+        }
 
         stage('Push Docker Image') {
             steps {
@@ -217,7 +217,7 @@ pipeline {
                            #### Commit and Push to Feature Branch ####
                            git config --global user.name "Jenkins"
                            git config --global user.email "Jenkins@ci.com"
-                           git remote set-url origin https://${git-pat-token}@github.com/chinmaya10000/kubernetes-manifest.git
+                           git remote set-url origin https://${GITHUB_TOKEN}@github.com/chinmaya10000/kubernetes-manifest.git
                            git add .
                            git commit -m "Updated docker image"
                            git push -u origin feature-$BUILD_ID
@@ -230,26 +230,70 @@ pipeline {
         stage('K8S - Raise PR') {
             steps {
                 script {
-                    
+                    def prTitle = "Update image version to $GIT_COMMIT"
+                    def prBody = "This PR updates the image version to $GIT_COMMIT for deployment."
+
+                    sh """
+                        curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
+                        -H "Accept: application/vnd.github.v3+json" \
+                        https://api.github.com/repos/chinmaya10000/kubernetes-manifest/pulls \
+                        -d '{
+                            "title": "${prTitle}",
+                            "body": "${prBody}",
+                            "head": "feature-$BUILD_ID",
+                            "base": "main"
+                        }'
+                    """
+                }
+            }
+        }
+
+        stage('App Deployed?') {
+            steps {
+                script {
+                    timeout(time: 1, unit: 'DAYS') {
+                        input message: 'Is the PR Merged and ArgoCD Synced?', ok: 'YES! PR is Merged and ArgoCD Application is Synced'
+                    }
+                }
+            }
+        }
+
+        stage('DAST - OWASP ZAP') {
+            steps {
+                script {
+                    sh '''
+                        #### REPLACE below with Kubernetes http://IP_Address:30000/api-docs/ #####
+                        chmod 777 $(pwd)
+                        docker run -v $(pwd):/zap/wrk/:rw ghcr.io/zaproxy/zaproxy zap-api-scan.py \
+                        -t http://134.209.155.222:30000/api-docs/ \
+                        -f openapi \
+                        -r zap_report.html \
+                        -w zap_report.md \
+                        -J zap_json_report.json \
+                        -x zap_xml_report.xml \
+                        -c zap_ignore_rules
+                    '''
                 }
             }
         }
     }
 
-    // post {
-    //     always {
-    //         junit allowEmptyResults: true, stdioRetention: '', testResults: 'dependency-check-junit.xml'
-    //         junit allowEmptyResults: true, stdioRetention: '', testResults: 'test-results.xml'
-    //         junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-MEDIUM-results.xml'
-    //         junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-CRITICAL-results.xml'
+    post {
+        always {
+            junit allowEmptyResults: true, stdioRetention: '', testResults: 'dependency-check-junit.xml'
+            junit allowEmptyResults: true, stdioRetention: '', testResults: 'test-results.xml'
+            junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-MEDIUM-results.xml'
+            junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-CRITICAL-results.xml'
+               
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'zap_report.html', reportName: 'DAST - OWASP ZAP Report', reportTitles: '', useWrapperFileDirectly: true])
 
-    //         publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-CRITICAL-results.html', reportName: 'Trivy Image Critical Vul Report', reportTitles: '', useWrapperFileDirectly: true])
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-CRITICAL-results.html', reportName: 'Trivy Image Critical Vul Report', reportTitles: '', useWrapperFileDirectly: true])
             
-    //         publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-MEDIUM-results.html', reportName: 'Trivy Image Medium Vul Report', reportTitles: '', useWrapperFileDirectly: true])
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-MEDIUM-results.html', reportName: 'Trivy Image Medium Vul Report', reportTitles: '', useWrapperFileDirectly: true])
 
-    //         publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'dependency-check-jenkins.html', reportName: 'Dependency Check HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'dependency-check-jenkins.html', reportName: 'Dependency Check HTML Report', reportTitles: '', useWrapperFileDirectly: true])
             
-    //         publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'coverage/lcov-report', reportFiles: 'index.html', reportName: 'Code Coverage HTML Report', reportTitles: '', useWrapperFileDirectly: true])
-    //     }
-    // }
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'coverage/lcov-report', reportFiles: 'index.html', reportName: 'Code Coverage HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+        }
+    }
 }
