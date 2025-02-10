@@ -10,8 +10,8 @@ pipeline {
         MONGO_DB_CREDS = credentials('mongo-db-credentials')
         MONGO_USERNAME = credentials('mongo-db-username')
         MONGO_PASSWORD = credentials('mongo-db-password')
-        // SONAR_SCANNER_HOME = tool 'sonarqube-scanner-610'
-        // GITHUB_TOKEN = credentials('git-pat-token')
+        SONAR_SCANNER_HOME = tool 'sonarqube-scanner-610'
+        GITHUB_TOKEN = credentials('git-pat-token')
     }
 
     stages {
@@ -145,6 +145,11 @@ pipeline {
             }
         }
         stage('Deploy') {
+            when {
+                expression {
+                    return env.BRANCH_NAME =~ /^feature\/.*/
+                }
+            }
             steps {
                 script {
                     sshagent(['ec2-server-key']) {
@@ -168,12 +173,64 @@ pipeline {
         }
 
         stage('Integration Testing - AWS EC2') {
+            when {
+                expression {
+                    return env.BRANCH_NAME =~ /^feature\/.*/
+                }
+            }
             steps {
                 script {
                     sh 'printenv | grep -i branch'
                     withAWS(credentials: 'aws-creds', region: 'us-east-2') {
                         sh 'bash integration-testing-ec2.sh'
                     }
+                }
+            }
+        }
+
+        stage('Clone/Pull Repo') {
+            steps {
+                script {
+                    if (fileExists('kubernetes-manifest')) {
+                        echo 'Cloned repo already exists - Pulling latest changes'
+                        dir('kubernetes-manifest') {
+                            sh 'git pull'
+                        }
+                    } else {
+                        echo 'Repo does not exists - Cloning the repo'
+                        sh 'git clone https://github.com/chinmaya10000/kubernetes-manifest.git'
+                    }
+                }
+            }
+        }
+
+        stage('K8S - Update Image Tag') {
+            steps {
+                script {
+                    dir('kubernetes-manifest/kubernetes') {
+                        sh '''
+                           #### Replace Docker Tag ######
+                           git checkout main
+                           git checkout -b feature-$BUILD_ID
+                           sed -i 's#image: chinmayapradhan/.*#image: chinmayapradhan/orbit-engine:$GIT_COMMIT#g' deployment.yaml
+
+                           #### Commit and Push to Feature Branch ####
+                           git config --global user.name "Jenkins"
+                           git config --global user.email "Jenkins@ci.com"
+                           git remote set-url origin https://${git-pat-token}@github.com/chinmaya10000/kubernetes-manifest.git
+                           git add .
+                           git commit -m "Updated docker image"
+                           git push -u origin feature-$BUILD_ID
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('K8S - Raise PR') {
+            steps {
+                script {
+                    
                 }
             }
         }
