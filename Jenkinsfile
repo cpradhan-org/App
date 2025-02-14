@@ -5,7 +5,7 @@ pipeline {
         stage('OPA - Conftest') {
             steps {
                 script {
-                    sh 'docker run --rm -v "$(pwd):/project" openpolicyagent/conftest test --policy /solar-system/dockerfile-security.rego /solar-system/Dockerfile'
+                    sh '/usr/local/bin/conftest test --policy /solar-system/dockerfile-security.rego /solar-system/Dockerfile'
                 }
             }
         }
