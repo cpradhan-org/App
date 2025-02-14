@@ -28,7 +28,7 @@ pipeline {
         stage('deploy') {
             steps {
                 script {
-                    withKubeConfig(caCertificate: '', clusterName: 'minikube', contextName: '', credentialsId: 'k8s-creds', namespace: 'solar-system', restrictKubeConfigAccess: false, serverUrl: 'https://192.168.49.2:8443') {
+                    withKubeConfig([credentialsId: 'k8s-creds']) {
                         sh 'kubectl run nginx --image=nginx:latest --port=80 -n solar-system'
                     }
                 }
