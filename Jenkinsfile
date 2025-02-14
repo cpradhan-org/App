@@ -34,7 +34,7 @@ pipeline {
                 script {
                     sh '''
                     export KUBECONFIG=$KUBECONFIG
-                    kubectl apply -f deployment.yaml
+                    kubectl get nodes
                     '''
                 }
             }
