@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         KUBECONFIG = credentials('KUBECONFIG')  // Reference the stored kubeconfig
+        NAMESPACE = 'solar-system'
     }
 
     stages {
@@ -35,6 +36,16 @@ pipeline {
                     sh '''
                     export KUBECONFIG=$KUBECONFIG
                     kubectl get nodes
+                    '''
+                }
+            }
+        }
+        stage('Deploy Nginx') {
+            steps {
+                script {
+                    sh '''
+                    export KUBECONFIG=$KUBECONFIG
+                    kubectl run nginx --image=nginx --port=80 -n $NAMESPACE
                     '''
                 }
             }
