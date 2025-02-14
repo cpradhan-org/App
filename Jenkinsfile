@@ -35,7 +35,7 @@ pipeline {
                 script {
                     sh '''
                     export KUBECONFIG=$KUBECONFIG
-                    kubectl get nodes
+                    k get nodes
                     '''
                 }
             }
@@ -45,7 +45,7 @@ pipeline {
                 script {
                     sh '''
                     export KUBECONFIG=$KUBECONFIG
-                    kubectl run nginx --image=nginx --port=80 -n $NAMESPACE
+                    k run nginx --image=nginx --port=80 -n $NAMESPACE
                     '''
                 }
             }
