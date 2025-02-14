@@ -4,26 +4,26 @@ metadata:
   labels:
     app: solar-system
   name: solar-system
-  namespace: ${NAMESPACE}
+  namespace: solar-system
 spec:
-  replicas: ${REPLICAS}
+  replicas: 1
   selector:
     matchLabels:
       app: solar-system
-  strategy: {}
   template:
     metadata:
       labels:
         app: solar-system
     spec:
       containers:
-      - image: ${K8S_IMAGE}
+      - name: solar-system
+        image: chinmayapradhan/orbit-engine:3e906e3be059342b1916f020c034344fb267ddca
         imagePullPolicy: Always
-        name: solar-system
         ports:
         - containerPort: 3000
-          name: http
-          protocol: TCP
+          name: http 
+          protocol: TCP 
         envFrom:
         - secretRef:
             name: mongo-db-creds
+
