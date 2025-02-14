@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        KUBECONFIG = credentials('KUBECONFIG')  // Reference the stored kubeconfig
+    }
+
     stages {
         // stage('OPA - Conftest') {
         //     steps {
@@ -28,9 +32,10 @@ pipeline {
         stage('deploy') {
             steps {
                 script {
-                    withKubeConfig([credentialsId: 'k8s-creds']) {
-                        sh 'kubectl run nginx --image=nginx:latest --port=80 -n solar-system'
-                    }
+                    sh '''
+                    export KUBECONFIG=$KUBECONFIG
+                    kubectl apply -f deployment.yaml
+                    '''
                 }
             }
         }
