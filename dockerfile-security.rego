@@ -79,11 +79,13 @@ forbidden_users = [
 ]
 
 deny[msg] {
-    command := "user"
-    users := [name | input[i].Cmd == "user"; name := input[i].Value]
-    lastuser := users[count(users)-1]
-    contains(lower(lastuser[_]), forbidden_users[_])
-    msg = sprintf("Line %d: Last USER directive (USER %s) is forbidden", [i, lastuser])
+    some i
+    input[i].Cmd == "user"
+    users := [name | some j; input[j].Cmd == "user"; name := input[j].Value]
+    count(users) > 0
+    lastuser := users[count(users) - 1]  # ✅ Fixed for older OPA versions
+    forbidden_users[lastuser]
+    msg := sprintf("Line %d: Last USER directive (USER %s) is forbidden", [i, lastuser])
 }
 
 # Do not sudo
