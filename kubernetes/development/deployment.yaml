@@ -20,7 +20,7 @@ spec:
         image: chinmayapradhan/orbit-engine:3e906e3be059342b1916f020c034344fb267ddca
         securityContext:
           runAsNonRoot: true
-          # runAsUser: 1000
+          runAsUser: 1000
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
