@@ -18,6 +18,7 @@ WORKDIR /usr/app
 
 # Copy files from build stage
 COPY --from=build /usr/app ./
+COPY . .
 
 # Set non-root user
 USER appuser
