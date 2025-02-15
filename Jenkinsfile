@@ -34,9 +34,14 @@ pipeline {
         }
         stage('Vulnerability Scan - Kubernetes') {
             steps {
-                script {
-                    sh '/usr/local/bin/conftest test --policy k8s-security.rego kubernetes/development/deployment.yaml'
-                }
+                parallel(
+                    "OPA Scan": {
+                        sh '/usr/local/bin/conftest test --policy k8s-security.rego kubernetes/development/deployment.yaml'
+                    },
+                    "Kubesec Scan": {
+                        sh "bash kubesec-scan.sh"
+                    }
+                )
             }
         }
         // stage('Deploy') {
