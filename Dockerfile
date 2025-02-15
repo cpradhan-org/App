@@ -6,6 +6,7 @@ WORKDIR /usr/app
 
 # Copy package files and install dependencies
 COPY package*.json ./
+COPY . .
 RUN npm install --only=production
 
 # Create a non-root user
@@ -18,7 +19,6 @@ WORKDIR /usr/app
 
 # Copy files from build stage
 COPY --from=build /usr/app ./
-COPY . .
 
 # Set non-root user
 USER appuser
