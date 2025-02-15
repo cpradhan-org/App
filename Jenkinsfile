@@ -37,7 +37,9 @@ pipeline {
                 script {
                     withKubeConfig(caCertificate: '', clusterName: 'myapp-eks', contextName: '', credentialsId: 'k8s-creds', namespace: 'solar-system', restrictKubeConfigAccess: false, serverUrl: 'https://CB0AF6D51C59F24129263DA9514E90B3.gr7.us-east-2.eks.amazonaws.com') {
                         sh "sed -i 's#image: chinmayapradhan/.*#image: chinmayapradhan/orbit-engine:$GIT_COMMIT#g' kubernetes/development/deployment.yaml"
-                        sh "kubectl apply -f kubernetes/development/deployment.yaml"
+                        sh 'kubectl apply -f kubernetes/development/secret.yaml'
+                        sh 'kubectl apply -f kubernetes/development/deployment.yaml'
+                        sh 'kubectl apply -f kubernetes/development/service.yaml'
                     }
                 }
             }
