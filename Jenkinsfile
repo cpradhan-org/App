@@ -166,13 +166,13 @@ pipeline {
                     }
                 }
             }
+        }
 
-            stage('Integration Testing - AWS EC2') {
-                steps {
-                    script {
-                        withAWS(credentials: 'aws-creds', region: 'us-east-2') {
-                            sh 'bash integration-testing-ec2.sh'
-                        }
+        stage('Integration Testing - AWS EC2') {
+            steps {
+                script {
+                    withAWS(credentials: 'aws-creds', region: 'us-east-2') {
+                        sh 'bash integration-testing-ec2.sh'
                     }
                 }
             }
