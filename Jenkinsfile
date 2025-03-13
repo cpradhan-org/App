@@ -85,16 +85,81 @@ pipeline {
                 }
             }
         }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh "docker build -t chinmayapradhan/orbit-engine:$GIT_COMMIT ."
+                }
+            }
+        }
+
+        stage('Trivy Vulnerability Scanner') {
+            steps {
+                script {
+                    sh '''
+                        trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
+                           --severity LOW,MEDIUM \
+                           --exit-code 0 \
+                           --quiet \
+                           --format json -o trivy-image-MEDIUM-results.json
+
+                        trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
+                           --severity CRITICAL,HIGH \
+                           --exit-code 1 \
+                           --quiet \
+                           --format json -o trivy-image-CRITICAL-results.json
+                    '''
+                }
+            }
+            post {
+                always {
+                    sh '''
+                       trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/html.tpl" \
+                            --output trivy-image-MEDIUM-results.html trivy-image-MEDIUM-results.json 
+
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/html.tpl" \
+                            --output trivy-image-CRITICAL-results.html trivy-image-CRITICAL-results.json
+
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/junit.tpl" \
+                            --output trivy-image-MEDIUM-results.xml  trivy-image-MEDIUM-results.json 
+
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/junit.tpl" \
+                            --output trivy-image-CRITICAL-results.xml trivy-image-CRITICAL-results.json
+                    '''
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker-creds', url: "") {
+                        sh "docker push chinmayapradhan/orbit-engine:$GIT_COMMIT"
+                    }
+                }
+            }
+        }
     }
 
     post {
         always {
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'dependency-check-junit.xml'
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'test-results.xml'
+            junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-CRITICAL-results.xml'
+            junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-MEDIUM-results.xml'
 
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'dependency-check-jenkins.html', reportName: 'Dependency Check HTML Report', reportTitles: '', useWrapperFileDirectly: true])
             
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'coverage/lcov-report', reportFiles: 'index.html', reportName: 'Code Coverage HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-CRITICAL-results.html', reportName: 'Trivy Image Critical Vul Report', reportTitles: '', useWrapperFileDirectly: true])
+
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-MEDIUM-results.html', reportName: 'Trivy Image Medium Vul Report', reportTitles: '', useWrapperFileDirectly: true])
         }
     }
 }
