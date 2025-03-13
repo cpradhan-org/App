@@ -146,9 +146,6 @@ pipeline {
         }
 
         stage('Deploy - AWS EC2') {
-            when {
-                branch 'feature/*'
-            }
             steps {
                 script {
                     sshagent(['ec2-server-key']) {
