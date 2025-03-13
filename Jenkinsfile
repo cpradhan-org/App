@@ -148,7 +148,7 @@ pipeline {
         stage('Deploy - AWS EC2') {
             steps {
                 script {
-                    sshagent['ec2-server-key'] {
+                    sshagent(['ec2-server-key']) {
                         sh '''
                             ssh -o StrictHostKeyChecking=no ec2-user@3.133.107.191 "
                                 if sudo docker ps -a | grep -q "solar-system"; then
