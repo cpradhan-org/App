@@ -146,6 +146,11 @@ pipeline {
         }
 
         stage('Deploy - AWS EC2') {
+            when {
+                expression {
+                    return env.BRANCH_NAME =~ /^feature\/.*/
+                }
+            }
             steps {
                 script {
                     sshagent(['ec2-server-key']) {
@@ -163,6 +168,16 @@ pipeline {
                                         -p 3000:3000 -d chinmayapradhan/orbit-engine:$GIT_COMMIT
                             "
                         '''
+                    }
+                }
+            }
+
+            stage('Integration Testing - AWS EC2') {
+                steps {
+                    script {
+                        withAWS(credentials: 'aws-creds', region: 'us-east-2') {
+                            sh 'bash integration-testing-ec2.sh'
+                        }
                     }
                 }
             }
