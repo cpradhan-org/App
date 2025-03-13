@@ -147,9 +147,7 @@ pipeline {
 
         stage('Deploy - AWS EC2') {
             when {
-                expression {
-                    return env.BRANCH_NAME =~ /^feature\/.*/
-                }
+                branch 'feature/*'
             }
             steps {
                 script {
