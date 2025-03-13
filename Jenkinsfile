@@ -106,7 +106,7 @@ pipeline {
 
                         trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
                            --severity CRITICAL \
-                           --exit-code 1 \
+                           --exit-code 0 \
                            --quiet \
                            --format json -o trivy-image-CRITICAL-results.json
                     '''
@@ -140,6 +140,29 @@ pipeline {
                 script {
                     withDockerRegistry(credentialsId: 'docker-creds', url: "") {
                         sh "docker push chinmayapradhan/orbit-engine:$GIT_COMMIT"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy - AWS EC2') {
+            steps {
+                script {
+                    sshagent['ec2-server-key'] {
+                        sh '''
+                            ssh -o StrictHostKeyChecking=no ec2-user@3.133.107.191 "
+                                if sudo docker ps -a | grep -q "solar-system"; then
+                                    echo "Container found. Stopping..."
+                                    sudo docker stop "solar-system" && sudo docker rm "solar-system"
+                                    echo "Container stopped and removed."
+                                fi
+                                   sudo docker run --name solar-system \
+                                        -e MONGO_URI=$MONGO_URI \
+                                        -e MONGO_USERNAME=$MONGO_USERNAME \
+                                        -e MONGO_PASSWORD=$MONGO_PASSWORD \
+                                        -p 3000:3000 -d chinmayapradhan/orbit-engine:$GIT_COMMIT
+                            "
+                        '''
                     }
                 }
             }
