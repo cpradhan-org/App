@@ -13,7 +13,7 @@ pipeline {
         SONAR_SCANNER_HOME = tool 'sonarqube-scanner-610'
         AWS_REGION = 'us-east-2'
         ECR_REPO_URL = '400014682771.dkr.ecr.us-east-2.amazonaws.com'
-        IMAGE_NAME = "${ECR_REPO_URL}/orbit-engine"
+        IMAGE_NAME = "${ECR_REPO_URL}/solar-system"
         AWS_ACCESS_KEY_ID = credentials('jenkins_aws_access_key_id')
         AWS_SECRET_ACCESS_KEY = credentials('jenkins_aws_secret_access_key')
     }
