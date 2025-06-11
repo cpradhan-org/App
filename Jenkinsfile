@@ -16,12 +16,6 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
         stage('Install Dependencies') {
             steps {
                 script {
@@ -51,7 +45,7 @@ pipeline {
                                 --format \'ALL\' 
                                 --disableYarnAudit \
                                 --prettyPrint''', odcInstallation: 'OWASP-DepCheck-11'
-                                
+
                             dependencyCheckPublisher failedTotalCritical: 3, pattern: 'dependency-check-report.xml', stopBuild: true
                         }
                     }
