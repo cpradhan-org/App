@@ -11,8 +11,9 @@ pipeline {
         MONGO_USERNAME = credentials('mongo-db-username')
         MONGO_PASSWORD = credentials('mongo-db-password')
         SONAR_SCANNER_HOME = tool 'sonarqube-scanner-610'
-        // ECR_REPO_URL = '400014682771.dkr.ecr.us-east-2.amazonaws.com'
-        // IMAGE_NAME = "${ECR_REPO_URL}/orbit-engine"
+        AWS_REGION = 'us-east-2'
+        ECR_REPO_URL = '400014682771.dkr.ecr.us-east-2.amazonaws.com'
+        IMAGE_NAME = "${ECR_REPO_URL}/orbit-engine"
     }
 
     stages {
@@ -89,6 +90,16 @@ pipeline {
                         }
                         waitForQualityGate abortPipeline: true
                     }
+                }
+            }
+        }
+
+        stage('Build and Push Docker Image') {
+            steps {
+                script {
+                    sh "docker build -t ${IMAGE_NAME}:$GIT_COMMIT ."
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}"
+                    sh "docker push ${IMAGE_NAME}:$GIT_COMMIT"
                 }
             }
         }
