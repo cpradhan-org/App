@@ -9,24 +9,25 @@ COPY package*.json ./
 COPY . .
 RUN npm install --only=production
 
-# Create a non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-# Run time stage
+# Runtime stage
 FROM node:22-alpine3.21
 
+# Set working directory
 WORKDIR /usr/app
 
-# Copy files from build stage
+# Copy built files from build stage
 COPY --from=build /usr/app ./
 
-# Set non-root user
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Switch to non-root user
 USER appuser
 
 # Expose port
 EXPOSE 3000
 
-# Start application
+# Run app
 CMD [ "npm", "start" ]
 
 
