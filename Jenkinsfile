@@ -105,6 +105,23 @@ pipeline {
                 }
             }
         }
+
+        sh ('Deploy') {
+            steps {
+                script {
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}"
+                    sh "docker pull ${IMAGE_NAME}:$GIT_COMMIT"
+                    sh """
+                       docker run --name solar-system \
+                            -e MONGO_URI=$MONGO_URI \
+                            -e MONGO_USERNAME=$MONGO_USERNAME \
+                            -e MONGO_PASSWORD=$MONGO_PASSWORD \
+                            -p 3000:3000 -d ${IMAGE_NAME}:$GIT_COMMIT
+
+                    """
+                }
+            }
+        }
     }
 
     post {
