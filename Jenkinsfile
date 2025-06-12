@@ -163,7 +163,7 @@ pipeline {
                 script {
                     sshagent(['ec2-server-key']) {
                         sh """
-                           ssh -o StrictHostKeyChecking=no ec2-user@18.191.22.180 "
+                            ssh -o StrictHostKeyChecking=no ec2-user@18.191.22.180 "
                                 if sudo docker ps -a | grep -q "solar-system"; then
                                     echo "Container found. Stopping..."
                                     sudo docker stop "solar-system" && sudo docker rm "solar-system"
@@ -174,6 +174,7 @@ pipeline {
                                         -e MONGO_USERNAME=$MONGO_USERNAME \
                                         -e MONGO_PASSWORD=$MONGO_PASSWORD \
                                         -d -p 3000:3000 ${IMAGE_NAME}:$GIT_COMMIT
+                            "
                         """
                     }
                 }
