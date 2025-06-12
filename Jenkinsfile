@@ -157,6 +157,20 @@ pipeline {
                 }
             }
         }
+
+        stage('Deploy - AWS EC2') {
+            steps {
+                script {
+                    withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
+                        sh """
+                            # Get instance ID
+                            INSTANCE_ID=\$(aws ssm get-parameter --name "/solar-system/instance-id" --query "Parameter.Value" --output text)
+                            echo "Instance ID: \$INSTANCE_ID"
+                        """
+                    }
+                }
+            }
+        }
     }
 
     post {
