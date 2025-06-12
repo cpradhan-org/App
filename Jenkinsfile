@@ -161,11 +161,19 @@ pipeline {
         stage('Deploy - AWS EC2') {
             steps {
                 script {
-                    withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
+                    sshagent(['ec2-server-key']) {
                         sh """
-                            # Get instance ID
-                            INSTANCE_ID=\$(aws ssm get-parameter --name "/solar-system/instance-id" --query "Parameter.Value" --output text)
-                            echo "Instance ID: \$INSTANCE_ID"
+                           ssh -o StrictHostKeyChecking=no ec2-user@18.191.22.180 "
+                                if sudo docker ps -a | grep -q "solar-system"; then
+                                    echo "Container found. Stopping..."
+                                    sudo docker stop "solar-system" && sudo docker rm "solar-system"
+                                    echo "Container stopped and removed."
+                                fi
+                                   sudo docker run --name solar-system \
+                                        -e MONGO_URI=$MONGO_URI \
+                                        -e MONGO_USERNAME=$MONGO_USERNAME \
+                                        -e MONGO_PASSWORD=$MONGO_PASSWORD \
+                                        -d -p 3000:3000 ${IMAGE_NAME}:$GIT_COMMIT
                         """
                     }
                 }
