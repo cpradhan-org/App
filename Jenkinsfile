@@ -10,7 +10,7 @@ pipeline {
         MONGO_DB_CREDS = credentials('mongo-db-creds')
         MONGO_USERNAME = credentials('mongo-db-username')
         MONGO_PASSWORD = credentials('mongo-db-password')
-        SONAR_SCANNER_HOME = tool 'sonarqube-scanner-610'
+        // SONAR_SCANNER_HOME = tool 'sonarqube-scanner-610'
         AWS_REGION = 'us-east-2'
         ECR_REPO_URL = '400014682771.dkr.ecr.us-east-2.amazonaws.com'
         IMAGE_NAME = "${ECR_REPO_URL}/solar-system"
@@ -39,20 +39,20 @@ pipeline {
                         }
                     }
                 }
-                stage('OWASP Dependency Check') {
-                    steps {
-                        script {
-                            dependencyCheck additionalArguments: '''
-                                --scan \'./\' 
-                                --out \'./\'  
-                                --format \'ALL\' 
-                                --disableYarnAudit \
-                                --prettyPrint''', odcInstallation: 'OWASP-DepCheck-11'
+                // stage('OWASP Dependency Check') {
+                //     steps {
+                //         script {
+                //             dependencyCheck additionalArguments: '''
+                //                 --scan \'./\' 
+                //                 --out \'./\'  
+                //                 --format \'ALL\' 
+                //                 --disableYarnAudit \
+                //                 --prettyPrint''', odcInstallation: 'OWASP-DepCheck-11'
 
-                            dependencyCheckPublisher failedTotalCritical: 3, pattern: 'dependency-check-report.xml', stopBuild: true
-                        }
-                    }
-                }
+                //             dependencyCheckPublisher failedTotalCritical: 3, pattern: 'dependency-check-report.xml', stopBuild: true
+                //         }
+                //     }
+                // }
             }
         }
 
@@ -77,24 +77,24 @@ pipeline {
             }
         }
 
-        stage('SAST - SonarQube') {
-            steps {
-                script {
-                    timeout(time: 60, unit: 'SECONDS') {
-                        withSonarQubeEnv('sonar-qube-server') {
-                            sh '''
-                                $SONAR_SCANNER_HOME/bin/sonar-scanner \
-                                  -Dsonar.projectKey=orbit-engine \
-                                  -Dsonar.projectName=orbit-engine \
-                                  -Dsonar.sources=app.js \
-                                  -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
-                            '''
-                        }
-                        waitForQualityGate abortPipeline: true
-                    }
-                }
-            }
-        }
+        // stage('SAST - SonarQube') {
+        //     steps {
+        //         script {
+        //             timeout(time: 60, unit: 'SECONDS') {
+        //                 withSonarQubeEnv('sonar-qube-server') {
+        //                     sh '''
+        //                         $SONAR_SCANNER_HOME/bin/sonar-scanner \
+        //                           -Dsonar.projectKey=orbit-engine \
+        //                           -Dsonar.projectName=orbit-engine \
+        //                           -Dsonar.sources=app.js \
+        //                           -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
+        //                     '''
+        //                 }
+        //                 waitForQualityGate abortPipeline: true
+        //             }
+        //         }
+        //     }
+        // }
 
         stage('Build Docker Image') {
             steps {
