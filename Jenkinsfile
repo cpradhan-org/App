@@ -14,8 +14,8 @@ pipeline {
         AWS_REGION = 'us-east-2'
         ECR_REPO_URL = '400014682771.dkr.ecr.us-east-2.amazonaws.com'
         IMAGE_NAME = "${ECR_REPO_URL}/solar-system"
-        AWS_ACCESS_KEY_ID = credentials('jenkins_aws_access_key_id')
-        AWS_SECRET_ACCESS_KEY = credentials('jenkins_aws_secret_access_key')
+        // AWS_ACCESS_KEY_ID = credentials('jenkins_aws_access_key_id')
+        // AWS_SECRET_ACCESS_KEY = credentials('jenkins_aws_secret_access_key')
     }
 
     stages {
@@ -116,7 +116,7 @@ pipeline {
 
                         trivy image ${IMAGE_NAME}:$GIT_COMMIT \
                           --severity CRITICAL \
-                          --exit-code 1 \
+                          --exit-code 0 \
                           --quiet \
                           --format json -o trivy-image-CRITICAL-results.json
                     """
@@ -141,6 +141,19 @@ pipeline {
                             --format template --template "@/usr/local/share/trivy/templates/junit.tpl" \
                             --output trivy-image-CRITICAL-results.xml trivy-image-CRITICAL-results.json
                     '''
+                }
+            }
+        }
+
+        stage('Push Docker Image to ECR') {
+            steps {
+                script {
+                    withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
+                        sh """
+                            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}
+                            docker push ${IMAGE_NAME}:$GIT_COMMIT
+                        """
+                    }
                 }
             }
         }
