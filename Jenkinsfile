@@ -96,29 +96,51 @@ pipeline {
             }
         }
 
-        stage('Build and Push Docker Image') {
+        stage('Build Docker Image') {
             steps {
                 script {
                     sh "docker build -t ${IMAGE_NAME}:$GIT_COMMIT ."
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}"
-                    sh "docker push ${IMAGE_NAME}:$GIT_COMMIT"
                 }
             }
         }
 
-        stage('Deploy') {
+        stage('Trivy Vulnerability Scan') {
             steps {
                 script {
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}"
-                    sh "docker pull ${IMAGE_NAME}:$GIT_COMMIT"
                     sh """
-                       docker run --name solar-system \
-                            -e MONGO_URI=$MONGO_URI \
-                            -e MONGO_USERNAME=$MONGO_USERNAME \
-                            -e MONGO_PASSWORD=$MONGO_PASSWORD \
-                            -p 3000:3000 -d ${IMAGE_NAME}:$GIT_COMMIT
+                        trivy image ${IMAGE_NAME}:$GIT_COMMIT \
+                          --severity LOW,MEDIUM,HIGH \
+                          --exit-code 0 \
+                          --quiet \
+                          --format json -o trivy-image-MEDIUM-results.json
 
+                        trivy image ${IMAGE_NAME}:$GIT_COMMIT \
+                          --severity CRITICAL \
+                          --exit-code 1 \
+                          --quiet \
+                          --format json -o trivy-image-CRITICAL-results.json
                     """
+                }
+            }
+            post {
+                always {
+                    sh '''
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/html.tpl" \
+                            --output trivy-image-MEDIUM-results.html trivy-image-MEDIUM-results.json
+
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/html.tpl" \
+                            --output trivy-image-CRITICAL-results.html trivy-image-CRITICAL-results.json
+
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/junit.tpl" \
+                            --output trivy-image-MEDIUM-results.xml  trivy-image-MEDIUM-results.json 
+
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/junit.tpl" \
+                            --output trivy-image-CRITICAL-results.xml trivy-image-CRITICAL-results.json
+                    '''
                 }
             }
         }
@@ -128,10 +150,16 @@ pipeline {
         always {
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'dependency-check-junit.xml'
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'test-results.xml'
+            junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-CRITICAL-results.xml'
+            junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-MEDIUM-results.xml'
 
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'dependency-check-jenkins.html', reportName: 'Dependency Check HTML Report', reportTitles: '', useWrapperFileDirectly: true])
 
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'coverage/lcov-report', reportFiles: 'index.html', reportName: 'Code Coverage HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-CRITICAL-results.html', reportName: 'Trivy Image Critical Vul Report', reportTitles: '', useWrapperFileDirectly: true])
+
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-MEDIUM-results.html', reportName: 'Trivy Image Medium Vul Report', reportTitles: '', useWrapperFileDirectly: true])
         }
     }
 }
