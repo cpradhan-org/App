@@ -14,7 +14,7 @@ pipeline {
         AWS_REGION = 'us-east-2'
         ECR_REPO_URL = '400014682771.dkr.ecr.us-east-2.amazonaws.com'
         IMAGE_NAME = "${ECR_REPO_URL}/solar-system"
-        INSTANCE_ID = 'i-0da30fba28b9e3bce'  # Replace with your EC2 instance ID
+        INSTANCE_ID = 'i-0da30fba28b9e3bce'   // Replace with your EC2 instance ID
     }
 
     stages {
