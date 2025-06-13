@@ -160,7 +160,7 @@ pipeline {
             steps {
                 script {
                     withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
-                        def instanceId = "i-00fef952b853e73b9"
+                        def instanceId = "i-0a35de4ebbcccf897"
 
                         def loginCmd = "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}"
 
