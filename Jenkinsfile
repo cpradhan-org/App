@@ -14,8 +14,7 @@ pipeline {
         AWS_REGION = 'us-east-2'
         ECR_REPO_URL = '400014682771.dkr.ecr.us-east-2.amazonaws.com'
         IMAGE_NAME = "${ECR_REPO_URL}/solar-system"
-        // AWS_ACCESS_KEY_ID = credentials('jenkins_aws_access_key_id')
-        // AWS_SECRET_ACCESS_KEY = credentials('jenkins_aws_secret_access_key')
+        INSTANCE_ID = 'i-0da30fba28b9e3bce'  # Replace with your EC2 instance ID
     }
 
     stages {
@@ -158,24 +157,38 @@ pipeline {
             }
         }
 
-        stage('Deploy - AWS EC2') {
+        stage('Deploy to EC2 via SSM') {
             steps {
                 script {
-                    sshagent(['ec2-server-key']) {
-                        sh """
-                            ssh -o StrictHostKeyChecking=no ec2-user@18.191.22.180 "
-                                if sudo docker ps -a | grep -q "solar-system"; then
-                                    echo "Container found. Stopping..."
-                                    sudo docker stop "solar-system" && sudo docker rm "solar-system"
-                                    echo "Container stopped and removed."
-                                fi
-                                   sudo docker run --name solar-system \
-                                        -e MONGO_URI=$MONGO_URI \
-                                        -e MONGO_USERNAME=$MONGO_USERNAME \
-                                        -e MONGO_PASSWORD=$MONGO_PASSWORD \
-                                        -d -p 3000:3000 ${IMAGE_NAME}:$GIT_COMMIT
-                            "
+                    withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
+                        def loginCmd = "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}"
+                        def dockerCmds = """
+                            docker pull ${IMAGE_NAME}:$GIT_COMMIT &&
+                            (docker stop solar-system || true) &&
+                            (docker rm solar-system || true) &&
+                            docker run --name solar-system \\
+                              -e MONGO_URI='${MONGO_URI}' \\
+                              -e MONGO_USERNAME='${MONGO_USERNAME}' \\
+                              -e MONGO_PASSWORD='${MONGO_PASSWORD}' \\
+                              -d -p 3000:3000 ${IMAGE_NAME}:$GIT_COMMIT
                         """
+
+                        def ssmCommand = """
+                            aws ssm send-command \
+                               --instance-ids "${INSTANCE_ID}" \
+                               --document-name "AWS-RunShellScript" \
+                               --comment "Deploy solar-system app" \
+                               --parameters "commands=['${loginCmd}', '${dockerCmds}']" \
+                               --query "Command.CommandId" \
+                               --output text
+                        """
+
+                        def commandId = sh(script: ssmCommand, returnStdout: true).trim()
+                        echo "SSM Command ID: ${commandId}"
+
+                        // Optional: wait and fetch status
+                        sh "sleep 15"
+                        sh "aws ssm get-command-invocation --command-id ${commandId} --instance-id ${INSTANCE_ID}"
                     }
                 }
             }
@@ -196,6 +209,8 @@ pipeline {
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-CRITICAL-results.html', reportName: 'Trivy Image Critical Vul Report', reportTitles: '', useWrapperFileDirectly: true])
 
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-MEDIUM-results.html', reportName: 'Trivy Image Medium Vul Report', reportTitles: '', useWrapperFileDirectly: true])
+
+            cleanWs()
         }
     }
 }
