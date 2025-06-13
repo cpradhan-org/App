@@ -14,7 +14,6 @@ pipeline {
         AWS_REGION = 'us-east-2'
         ECR_REPO_URL = '400014682771.dkr.ecr.us-east-2.amazonaws.com'
         IMAGE_NAME = "${ECR_REPO_URL}/solar-system"
-        INSTANCE_ID = 'i-0da30fba28b9e3bce'   // Replace with your EC2 instance ID
     }
 
     stages {
@@ -160,7 +159,41 @@ pipeline {
         stage('Deploy to EC2 via SSM') {
             steps {
                 script {
-                    sh 'deploy'
+                    withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
+                        def instanceId = "i-00fef952b853e73b9"
+
+                        def loginCmd = "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}"
+
+                        def deployCmd = """
+                            docker pull ${IMAGE_NAME}:$GIT_COMMIT &&
+                            (docker stop solar-system || true) &&
+                            (docker rm solar-system || true) &&
+                            docker run -d --name solar-system -p 3000:3000 \
+                                -e MONGO_URI=${MONGO_URI} \
+                                -e MONGO_USERNAME=${MONGO_USERNAME} \
+                                -e MONGO_PASSWORD=${MONGO_PASSWORD} \
+                                ${IMAGE_NAME}:$GIT_COMMIT
+                        """
+
+                        // Escape newlines for safe shell execution
+                        deployCmd = deployCmd.replaceAll('\n', ' ').trim()
+
+                        def commandId = sh(script: """
+                            --instance-ids "${instanceId}" \
+                            --document-name "AWS-RunShellScript" \
+                            --parameters commands=["${loginCmd}", "${deployCmd}"] \
+                            --query "Command.CommandId" \
+                            --output text
+                        """, returnStdout: true).trim()
+
+                        sleep(time: 15, unit: 'SECONDS')
+
+                        sh """
+                            aws ssm get-command-invocation \
+                                --command-id "${commandId}" \
+                                --instance-id "${instanceId}"
+                        """
+                    }
                 }
             }
         }
