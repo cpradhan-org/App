@@ -162,6 +162,7 @@ pipeline {
                 script {
                     withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
                         sh """
+                            chmod +x ./scripts/deploy.sh
                             ./scripts/deploy.sh \
                                 ${INSTANCE_ID} \
                                 ${AWS_REGION} \
