@@ -161,34 +161,17 @@ pipeline {
             steps {
                 script {
                     withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
-                        def loginCmd = "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}"
-                        def dockerCmds = """
-                            docker pull ${IMAGE_NAME}:$GIT_COMMIT &&
-                            (docker stop solar-system || true) &&
-                            (docker rm solar-system || true) &&
-                            docker run --name solar-system \\
-                              -e MONGO_URI='${MONGO_URI}' \\
-                              -e MONGO_USERNAME='${MONGO_USERNAME}' \\
-                              -e MONGO_PASSWORD='${MONGO_PASSWORD}' \\
-                              -d -p 3000:3000 ${IMAGE_NAME}:$GIT_COMMIT
+                        sh """
+                            ./scripts/deploy.sh \
+                                ${INSTANCE_ID} \
+                                ${AWS_REGION} \
+                                ${ECR_REPO_URL} \
+                                ${IMAGE_NAME} \
+                                ${GIT_COMMIT} \
+                                '${MONGO_URI}' \
+                                '${MONGO_USERNAME}' \
+                                '${MONGO_PASSWORD}'
                         """
-
-                        def ssmCommand = """
-                            aws ssm send-command \
-                               --instance-ids "${INSTANCE_ID}" \
-                               --document-name "AWS-RunShellScript" \
-                               --comment "Deploy solar-system app" \
-                               --parameters "commands=['${loginCmd}', '${dockerCmds}']" \
-                               --query "Command.CommandId" \
-                               --output text
-                        """
-
-                        def commandId = sh(script: ssmCommand, returnStdout: true).trim()
-                        echo "SSM Command ID: ${commandId}"
-
-                        // Optional: wait and fetch status
-                        sh "sleep 15"
-                        sh "aws ssm get-command-invocation --command-id ${commandId} --instance-id ${INSTANCE_ID}"
                     }
                 }
             }
