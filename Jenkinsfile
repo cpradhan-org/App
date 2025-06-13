@@ -160,20 +160,7 @@ pipeline {
         stage('Deploy to EC2 via SSM') {
             steps {
                 script {
-                    withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
-                        sh """
-                            chmod +x ./scripts/deploy.sh
-                            ./scripts/deploy.sh \
-                                ${INSTANCE_ID} \
-                                ${AWS_REGION} \
-                                ${ECR_REPO_URL} \
-                                ${IMAGE_NAME} \
-                                ${GIT_COMMIT} \
-                                '${MONGO_URI}' \
-                                '${MONGO_USERNAME}' \
-                                '${MONGO_PASSWORD}'
-                        """
-                    }
+                    sh 'deploy'
                 }
             }
         }
