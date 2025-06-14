@@ -183,10 +183,62 @@ pipeline {
                 }
             }
         }
+
+        stage('K8S - Update Image Tag') {
+            steps {
+                script {
+                    sh 'git clone -b main https://github.com/chinmaya10000/kubernetes-manifest.git'
+                    dir("kubernetes-manifest/solar-system") {
+                        sh '''
+                           #### Replace Docker Tag ####
+                           git checkout main
+                           git checkout -b feature-$BUILD_ID
+                           sed -i "s#chinmayapradhan.*#chinmayapradhan/orbit-engine:$GIT_COMMIT#g" deployment.yaml
+
+                           #### Commit and Push to Feature Branch ####
+                           git config --global user.name "jenkins"
+                           git config --global user.email "jenkins@dasher.com"
+                           git remote set-url origin https://${GITHUB_TOKEN}@github.com/chinmaya10000/kubernetes-manifest.git
+                           git add .
+                           git commit -am "Updated docker image"
+                           git push -u origin feature-$BUILD_ID
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('k8s - Raise PR') {
+            steps {
+                script {
+                    sh """
+                       curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
+                       -H "Accept: application/vnd.github.v3+json" \
+                       'https://api.github.com/repos/chinmaya10000/kubernetes-manifest/pulls' \
+                       -d '{
+                            "assignee": "git-admin",
+                                "assignees": [
+                                    "git-admin"
+                                ],
+                            "base": "main",
+                            "body": "Updated docker image in deployment manifest",
+                            "head": "feature-$BUILD_ID",
+                            "title": "Updated Docker Image"
+                        }'
+                    """
+                }
+            }
+        }
     }
 
     post {
         always {
+            script {
+                if (fileExists('kubernetes-manifest')) {
+                    sh 'rm -rf kubernetes-manifest'
+                }
+            }
+
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'dependency-check-junit.xml'
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'test-results.xml'
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-CRITICAL-results.xml'
