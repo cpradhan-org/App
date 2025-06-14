@@ -229,6 +229,65 @@ pipeline {
                 }
             }
         }
+
+        stage('App Deployed?') {
+            steps {
+                script {
+                    timeout(time: 1, unit: 'DAYS') {
+                        input message: 'Is the PR Merged and ArgoCD Synced?', ok: 'YES! PR is Merged and ArgoCD Application is Synced'
+                    }
+                }
+            }
+        }
+
+        stage('DAST - OWASP ZAP') {
+            steps {
+                script {
+                    sh '''
+                        #### REPLACE below with Kubernetes http://IP_Address:30000/api-docs/ #####
+                        chmod 777 $(pwd)
+                        docker run -v $(pwd):/zap/wrk/:rw ghcr.io/zaproxy/zaproxy zap-api-scan.py \
+                        -t http://a6e275847d50f4ef3b1758b2be5639f2-1051821613.us-east-2.elb.amazonaws.com:3000/api-docs/ \
+                        -f openapi \
+                        -r zap_report.html \
+                        -w zap_report.md \
+                        -J zap_json_report.json \
+                        -x zap_xml_report.xml \
+                        -c zap_ignore_rules
+                    '''
+                }
+            }
+        }
+
+        stage('Upload - AWS S3') {
+            steps {
+                withAWS(credentials: 'aws-creds', region: 'us-east-2') {
+                    sh  '''
+                        ls -ltr
+                        mkdir reports-$BUILD_ID
+                        cp -rf coverage/ reports-$BUILD_ID/
+                        cp dependency*.* test-results.xml trivy*.* zap*.* reports-$BUILD_ID/
+                        ls -ltr reports-$BUILD_ID/
+                    '''
+                    s3Upload(
+                        file:"reports-$BUILD_ID", 
+                        bucket:'orbit-engine-jenkins-reports', 
+                        path:"jenkins-$BUILD_ID/"
+                    )
+                }
+            }
+        } 
+
+        stage('Deploy to Prod?') {
+            when {
+                branch 'main'
+            }
+            steps {
+                timeout(time: 1, unit: 'DAYS') {
+                    input message: 'Deploy to Production?', ok: 'YES! Let us try this on Production', submitter: 'admin'
+                }
+            }
+        }
     }
 
     post {
@@ -250,6 +309,8 @@ pipeline {
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-CRITICAL-results.html', reportName: 'Trivy Image Critical Vul Report', reportTitles: '', useWrapperFileDirectly: true])
 
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-MEDIUM-results.html', reportName: 'Trivy Image Medium Vul Report', reportTitles: '', useWrapperFileDirectly: true])
+
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'zap_report.html', reportName: 'DAST - OWASP ZAP Report', reportTitles: '', useWrapperFileDirectly: true])
         }
     }
 }
