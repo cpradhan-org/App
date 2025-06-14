@@ -11,10 +11,6 @@ pipeline {
         MONGO_USERNAME = credentials('mongo-db-username')
         MONGO_PASSWORD = credentials('mongo-db-password')
         // SONAR_SCANNER_HOME = tool 'sonarqube-scanner-610'
-        AWS_REGION = 'us-east-2'
-        ECR_REPO_URL = '400014682771.dkr.ecr.us-east-2.amazonaws.com'
-        IMAGE_NAME = "${ECR_REPO_URL}/solar-system"
-        INSTANCE_ID = 'i-09b1da80766b4fafd'
     }
 
     stages {
@@ -98,7 +94,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh "docker build -t ${IMAGE_NAME}:$GIT_COMMIT ."
+                    sh "docker build -t chinmayapradhan/orbit-engine:$GIT_COMMIT ."
                 }
             }
         }
@@ -107,13 +103,13 @@ pipeline {
             steps {
                 script {
                     sh """
-                        trivy image ${IMAGE_NAME}:$GIT_COMMIT \
+                        trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
                           --severity LOW,MEDIUM,HIGH \
                           --exit-code 0 \
                           --quiet \
                           --format json -o trivy-image-MEDIUM-results.json
 
-                        trivy image ${IMAGE_NAME}:$GIT_COMMIT \
+                        trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
                           --severity CRITICAL \
                           --exit-code 0 \
                           --quiet \
@@ -147,51 +143,31 @@ pipeline {
         stage('Push Docker Image to ECR') {
             steps {
                 script {
-                    withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
-                        sh """
-                            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}
-                            docker push ${IMAGE_NAME}:$GIT_COMMIT
-                        """
+                    withDockerRegistry(credentialsId: 'docker-creds', url: '') {
+                        sh "docker push chinmayapradhan/orbit-engine:$GIT_COMMIT"
                     }
                 }
             }
         }
 
-        stage('Deploy to EC2 via SSM') {
+        stage('Deploy to EC2') {
             steps {
-                withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
-                    script {
-                        def loginCmd = "export AWS_DEFAULT_REGION=${AWS_REGION}; aws ecr get-login-password | docker login --username AWS --password-stdin ${ECR_REPO_URL}"
-
-                        def runContainerCmd = """
-                            docker pull ${IMAGE_NAME}:$GIT_COMMIT && \
-                            (docker stop solar-system || true) && \
-                            (docker rm solar-system || true) && \
-                            docker run -d --name solar-system -p 80:3000 \
-                            -e MONGO_URI='${MONGO_URI}' \
-                            -e MONGO_USERNAME='${MONGO_USERNAME}' \
-                            -e MONGO_PASSWORD='${MONGO_PASSWORD}' \
-                            ${IMAGE_NAME}:$GIT_COMMIT
-                        """.stripIndent().trim()
-
-                        def commandId = sh(
-                            script: """aws ssm send-command \
-                                --instance-ids "${INSTANCE_ID}" \
-                                --document-name "AWS-RunShellScript" \
-                                --parameters commands=["${loginCmd}", "${runContainerCmd}"] \
-                                --comment "Deploying solar-system app" \
-                                --query "Command.CommandId" \
-                                --output text""",
-                            returnStdout: true
-                        ).trim()
-
-                        sleep 20
-
-                        sh """
-                            aws ssm get-command-invocation \
-                                --command-id "${commandId}" \
-                                --instance-id "${INSTANCE_ID}"
-                        """
+                script {
+                    sshagent(['ec2-server-key']) {
+                        ssh '''
+                            ssh -o StrictHostKeyChecking=no ec2-user@18.217.135.213 "
+                                if sudo docker ps -a | grep -q "solar-system"; then
+                                    echo "Container found. Stopping..."
+                                    sudo docker stop "solar-system" && sudo docker rm "solar-system"
+                                    echo "Container stopped and removed."
+                                fi
+                                    sudo docker run --name solar-system \
+                                        -e MONGO_URI=$MONGO_URI \
+                                        -e MONGO_USERNAME=$MONGO_USERNAME \
+                                        -e MONGO_PASSWORD=$MONGO_PASSWORD \
+                                        -p 3000:3000 -d chinmayapradhan/orbit-engine:$GIT_COMMIT
+                            "
+                        '''
                     }
                 }
             }
