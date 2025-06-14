@@ -11,6 +11,7 @@ pipeline {
         MONGO_USERNAME = credentials('mongo-db-username')
         MONGO_PASSWORD = credentials('mongo-db-password')
         SONAR_SCANNER_HOME = tool 'sonarqube-scanner-610'
+        GITHUB_TOKEN = credentials('git-pat-token')
     }
 
     stages {
