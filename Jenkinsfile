@@ -154,7 +154,7 @@ pipeline {
             steps {
                 script {
                     sshagent(['ec2-server-key']) {
-                        ssh '''
+                        sh '''
                             ssh -o StrictHostKeyChecking=no ec2-user@18.217.135.213 "
                                 if sudo docker ps -a | grep -q "solar-system"; then
                                     echo "Container found. Stopping..."
