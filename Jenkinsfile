@@ -160,39 +160,24 @@ pipeline {
             steps {
                 script {
                     withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
-                        def instanceId = "i-0a35de4ebbcccf897"
-
-                        def loginCmd = "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}"
-
-                        def deployCmd = """
-                            docker pull ${IMAGE_NAME}:$GIT_COMMIT &&
-                            (docker stop solar-system || true) &&
-                            (docker rm solar-system || true) &&
-                            docker run -d --name solar-system -p 3000:3000 \
-                                -e MONGO_URI=${MONGO_URI} \
-                                -e MONGO_USERNAME=${MONGO_USERNAME} \
-                                -e MONGO_PASSWORD=${MONGO_PASSWORD} \
-                                ${IMAGE_NAME}:$GIT_COMMIT
-                        """
-
-                        // Escape newlines for safe shell execution
-                        deployCmd = deployCmd.replaceAll('\n', ' ').trim()
-
-                        def commandId = sh(script: """
-                            --instance-ids "${instanceId}" \
-                            --document-name "AWS-RunShellScript" \
-                            --parameters commands=["${loginCmd}", "${deployCmd}"] \
-                            --query "Command.CommandId" \
-                            --output text
-                        """, returnStdout: true).trim()
-
-                        sleep(time: 15, unit: 'SECONDS')
-
-                        sh """
-                            aws ssm get-command-invocation \
-                                --command-id "${commandId}" \
-                                --instance-id "${instanceId}"
-                        """
+                        ssmSendCommand(
+                            documentName: 'AWS-RunShellScript',
+                            comment: 'Deploy Docker container on EC2',
+                            instanceIds: ['i-09b1da80766b4fafd'],
+                            parameters: [
+                                'commands': [
+                                    "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}",
+                                    "docker pull ${IMAGE_NAME}:$GIT_COMMIT",
+                                    "docker stop solar-system || true && docker rm solar-system || true",
+                                    """docker run -d --name solar-system -p 3000:3000 \
+                                        -e MONGO_URI=${MONGO_URI} \
+                                        -e MONGO_USERNAME=${MONGO_USERNAME} \
+                                        -e MONGO_PASSWORD=${MONGO_PASSWORD} \
+                                        ${IMAGE_NAME}:$GIT_COMMIT"""
+                                ]
+                            ],
+                            timeoutSeconds: 600
+                        )
                     }
                 }
             }
@@ -209,7 +194,6 @@ pipeline {
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'dependency-check-jenkins.html', reportName: 'Dependency Check HTML Report', reportTitles: '', useWrapperFileDirectly: true])
 
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'coverage/lcov-report', reportFiles: 'index.html', reportName: 'Code Coverage HTML Report', reportTitles: '', useWrapperFileDirectly: true])
-
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-CRITICAL-results.html', reportName: 'Trivy Image Critical Vul Report', reportTitles: '', useWrapperFileDirectly: true])
 
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-MEDIUM-results.html', reportName: 'Trivy Image Medium Vul Report', reportTitles: '', useWrapperFileDirectly: true])
