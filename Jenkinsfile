@@ -14,6 +14,7 @@ pipeline {
         AWS_REGION = 'us-east-2'
         ECR_REPO_URL = '400014682771.dkr.ecr.us-east-2.amazonaws.com'
         IMAGE_NAME = "${ECR_REPO_URL}/solar-system"
+        INSTANCE_ID = 'i-09b1da80766b4fafd'
     }
 
     stages {
@@ -158,26 +159,39 @@ pipeline {
 
         stage('Deploy to EC2 via SSM') {
             steps {
-                script {
-                    withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
-                        ssmSendCommand(
-                            documentName: 'AWS-RunShellScript',
-                            comment: 'Deploy Docker container on EC2',
-                            instanceIds: ['i-09b1da80766b4fafd'],
-                            parameters: [
-                                'commands': [
-                                    "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO_URL}",
-                                    "docker pull ${IMAGE_NAME}:$GIT_COMMIT",
-                                    "docker stop solar-system || true && docker rm solar-system || true",
-                                    """docker run -d --name solar-system -p 3000:3000 \
-                                        -e MONGO_URI=${MONGO_URI} \
-                                        -e MONGO_USERNAME=${MONGO_USERNAME} \
-                                        -e MONGO_PASSWORD=${MONGO_PASSWORD} \
-                                        ${IMAGE_NAME}:$GIT_COMMIT"""
-                                ]
-                            ],
-                            timeoutSeconds: 600
-                        )
+                withAWS(region: "${AWS_REGION}", credentials: 'aws-creds') {
+                    script {
+                        def loginCmd = "export AWS_DEFAULT_REGION=${AWS_REGION}; aws ecr get-login-password | docker login --username AWS --password-stdin ${ECR_REPO_URL}"
+
+                        def runContainerCmd = """
+                            docker pull ${IMAGE_NAME}:$GIT_COMMIT && \
+                            (docker stop solar-system || true) && \
+                            (docker rm solar-system || true) && \
+                            docker run -d --name solar-system -p 80:3000 \
+                            -e MONGO_URI='${MONGO_URI}' \
+                            -e MONGO_USERNAME='${MONGO_USERNAME}' \
+                            -e MONGO_PASSWORD='${MONGO_PASSWORD}' \
+                            ${IMAGE_NAME}:$GIT_COMMIT
+                        """.stripIndent().trim()
+
+                        def commandId = sh(
+                            script: """aws ssm send-command \
+                                --instance-ids "${INSTANCE_ID}" \
+                                --document-name "AWS-RunShellScript" \
+                                --parameters commands=["${loginCmd}", "${runContainerCmd}"] \
+                                --comment "Deploying solar-system app" \
+                                --query "Command.CommandId" \
+                                --output text""",
+                            returnStdout: true
+                        ).trim()
+
+                        sleep 20
+
+                        sh """
+                            aws ssm get-command-invocation \
+                                --command-id "${commandId}" \
+                                --instance-id "${INSTANCE_ID}"
+                        """
                     }
                 }
             }
