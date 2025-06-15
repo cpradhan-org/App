@@ -252,8 +252,7 @@ pipeline {
                         -r zap_report.html \
                         -w zap_report.md \
                         -J zap_json_report.json \
-                        -x zap_xml_report.xml \
-                        -c zap_ignore_rules
+                        -x zap_xml_report.xml 
                     '''
                 }
             }
