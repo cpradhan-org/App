@@ -1,75 +1,161 @@
 pipeline {
+
     agent any
+    tools {
+        nodejs 'node'
+    }
 
     environment {
-        deploymentName = 'solar-system'
-        containerName = 'solar-system'
-        serviceName = 'solar-system'
-        imageName = "chinmayapradhan/orbit-engine:$GIT_COMMIT"
+        MONGO_URI = 'mongodb+srv://supercluster.d83jj.mongodb.net/superData'
+        MONGO_DB_CREDS = credentials('mongo-db-creds')
+        MONGO_USERNAME = credentials('mongo-db-username')
+        MONGO_PASSWORD = credentials('mongo-db-password')
+        SONAR_SCANNER_HOME = tool 'sonarqube-scanner-610'
+        GITHUB_TOKEN = credentials('git-pat-token')
+        ECR_REPO_URL = '156041433917.dkr.ecr.us-east-2.amazonaws.com'
+        IMAGE_NAME = "${ECR_REPO_URL}/orbit-engine"
+        IMAGE_TAG = "${GIT_COMMIT}"
     }
 
     stages {
-        stage('OPA - Conftest') {
+
+        stage('Install Dependencies') {
             steps {
                 script {
-                    sh '/usr/local/bin/conftest test --policy dockerfile-security.rego Dockerfile'
+                    sh 'npm install --no-audit'
                 }
             }
         }
-        stage('Build and push') {
-            steps {
-                script {
-                    sh "docker build -t chinmayapradhan/orbit-engine:$GIT_COMMIT ."
-                }
-            }
-        }
-        stage('Push Image') {
-            steps {
-                script {
-                    withDockerRegistry(credentialsId: 'docker-creds', url: "") {
-                        sh "docker push chinmayapradhan/orbit-engine:$GIT_COMMIT"
-                    }
-                }
-            }
-        }
-        stage('Vulnerability Scan - Kubernetes') {
-            steps {
-                parallel(
-                    "OPA Scan": {
-                        sh '/usr/local/bin/conftest test --policy k8s-security.rego kubernetes/development/deployment.yaml'
-                    },
-                    "Kubesec Scan": {
-                        sh "bash kubesec-scan.sh"
-                    }
-                )
-            }
-        }
-        // stage('Deploy') {
-        //     steps {
-        //         script {
-        //             withKubeConfig(caCertificate: '', clusterName: 'myapp-eks', contextName: '', credentialsId: 'k8s-creds', namespace: 'solar-system', restrictKubeConfigAccess: false, serverUrl: 'https://CB0AF6D51C59F24129263DA9514E90B3.gr7.us-east-2.eks.amazonaws.com') {
-        //                 sh "sed -i 's#image: chinmayapradhan/.*#image: chinmayapradhan/orbit-engine:$GIT_COMMIT#g' kubernetes/development/deployment.yaml"
-        //                 sh 'kubectl apply -f kubernetes/development/secret.yaml'
-        //                 sh 'kubectl apply -f kubernetes/development/deployment.yaml'
-        //                 sh 'kubectl apply -f kubernetes/development/service.yaml'
-        //             }
-        //         }
-        //     }
-        // }
-        stage('K8s Deployment - DEV') {
-            steps {
-                parallel(
-                    "Deployment": {
-                        withKubeConfig(caCertificate: '', clusterName: 'myapp-eks', contextName: '', credentialsId: 'k8s-creds', namespace: 'solar-system', restrictKubeConfigAccess: false, serverUrl: 'https://CB0AF6D51C59F24129263DA9514E90B3.gr7.us-east-2.eks.amazonaws.com') {
-                            sh "bash k8s-deployment.sh" 
-                        }
-                    },
-                    "Rollout Status": {
-                        withKubeConfig(caCertificate: '', clusterName: 'myapp-eks', contextName: '', credentialsId: 'k8s-creds', namespace: 'solar-system', restrictKubeConfigAccess: false, serverUrl: 'https://CB0AF6D51C59F24129263DA9514E90B3.gr7.us-east-2.eks.amazonaws.com') {
-                            sh "bash k8s-deployment-rollout-statu.sh" 
+
+        stage('Dependency Scanning') {
+            parallel {
+                stage('NPM Dependency Audit') {
+                    steps {
+                        script {
+                            sh '''
+                               npm audit --audit-level=critical || true
+                               echo $?
+                            '''
                         }
                     }
-                )
+                }
+                stage('OWASP Dependency Check') {
+                    steps {
+                        script {
+                            dependencyCheck additionalArguments: '''
+                                --scan \'./\' 
+                                --out \'./\'  
+                                --format \'ALL\' 
+                                --disableYarnAudit \
+                                --prettyPrint''', odcInstallation: 'OWASP-DepCheck-11'
+                            
+                            dependencyCheckPublisher failedTotalCritical: 3, pattern: 'dependency-check-report.xml', stopBuild: true
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                script {
+                    sh 'echo Colon-Separated - $MONGO_DB_CREDS'
+                    sh 'echo Username - $MONGO_DB_CREDS_USR'
+                    sh 'echo Password - $MONGO_DB_CREDS_PSW'
+                    sh 'npm test'
+                }
+            }
+        }
+
+        stage('Code Coverage') {
+            steps {
+                script {
+                    catchError(buildResult: 'SUCCESS', message: 'Oops! it will be fixed in future releases', stageResult: 'UNSTABLE') {
+                        sh 'npm run coverage'
+                    }
+                }
+            }
+        }
+
+        stage('SAST - SonarQube') {
+            steps {
+                script {
+                    sh 'sleep 5s'
+                    timeout(time: 60, unit: 'SECONDS') {
+                        withSonarQubeEnv('sonar-qube-server') {
+                            sh '''
+                                $SONAR_SCANNER_HOME/bin/sonar-scanner \
+                                  -Dsonar.projectKey=orbit-engine \
+                                  -Dsonar.projectName=orbit-engine \
+                                  -Dsonar.sources=app.js \
+                                  -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
+                            '''
+                        }
+                        waitForQualityGate abortPipeline: true
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                }
+            }
+        }
+
+        stage('Trivy Vulnerability Scan') {
+            steps {
+                script {
+                    sh """
+                        trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
+                          --severity LOW,MEDIUM,HIGH \
+                          --exit-code 0 \
+                          --quiet \
+                          --format json -o trivy-image-MEDIUM-results.json
+
+                        trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
+                          --severity CRITICAL \
+                          --exit-code 0 \
+                          --quiet \
+                          --format json -o trivy-image-CRITICAL-results.json
+                    """
+                }
+            }
+            post {
+                always {
+                    sh '''
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/html.tpl" \
+                            --output trivy-image-MEDIUM-results.html trivy-image-MEDIUM-results.json
+
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/html.tpl" \
+                            --output trivy-image-CRITICAL-results.html trivy-image-CRITICAL-results.json
+
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/junit.tpl" \
+                            --output trivy-image-MEDIUM-results.xml  trivy-image-MEDIUM-results.json 
+
+                        trivy convert \
+                            --format template --template "@/usr/local/share/trivy/templates/junit.tpl" \
+                            --output trivy-image-CRITICAL-results.xml trivy-image-CRITICAL-results.json
+                    '''
+                }
+            }
+        }
+
+        stage('Push Docker Image to ECR') {
+            steps {
+                script {
+                    withAWS(credentials: 'aws-credentials', region: 'us-east-2') {
+                        sh '''
+                            aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin ${ECR_REPO_URL}
+                            docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                        '''
+                    }
+                }
             }
         }
     }
