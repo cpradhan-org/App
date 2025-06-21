@@ -162,20 +162,22 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 script {
-                    sshagent(['ec2-ssh-key']) {
-                        sh """
-                            ssh -o StrictHostKeyChecking=no ec2-user@18.191.246.231 '
-                                aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin ${ECR_REPO_URL}
-                                docker pull ${IMAGE_NAME}:${IMAGE_TAG}
-                                docker stop solar-system || true
-                                docker rm solar-system || true
-                                docker run -d --name solar-system \
-                                -e MONGO_URI="${MONGO_URI}" \
-                                -e MONGO_USERNAME="${MONGO_USERNAME}" \
-                                -e MONGO_PASSWORD="${MONGO_PASSWORD}" \
-                                -p 3000:3000 ${IMAGE_NAME}:${IMAGE_TAG}
-                            '
-                        """
+                    withAWS(credentials: 'aws-creds', region: 'us-east-2') {
+                        sshagent(['ec2-ssh-key']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ec2-user@18.191.246.231 '
+                                    aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin ${ECR_REPO_URL}
+                                    docker pull ${IMAGE_NAME}:${IMAGE_TAG}
+                                    docker stop solar-system || true
+                                    docker rm solar-system || true
+                                    docker run -d --name solar-system \
+                                       -e MONGO_URI="${MONGO_URI}" \
+                                       -e MONGO_USERNAME="${MONGO_USERNAME}" \
+                                       -e MONGO_PASSWORD="${MONGO_PASSWORD}" \
+                                       -p 3000:3000 ${IMAGE_NAME}:${IMAGE_TAG}
+                                '
+                            """
+                        }
                     }
                 }
             }
