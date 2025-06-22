@@ -5,7 +5,7 @@ aws --version
 
 Data=$(aws ec2 describe-instances)
 echo "Data - $Data"
-URL=$(aws ec2 describe-instances | jq -r '.Reservations[].Instances[] | select(.Tags != null) | select(.Tags[]? | select(.Key == "Name" and .Value == "dev-server")) | .PublicDnsName')
+URL=$(aws ec2 describe-instances | /usr/bin/jq -r '.Reservations[].Instances[] | select(.Tags != null) | select(.Tags[]? | select(.Key == "Name" and .Value == "dev-server")) | .PublicDnsName')
 echo "URL Data - $URL"
 
 if [[ "$URL" != '' ]]; then
