@@ -194,35 +194,35 @@ pipeline {
             }
         }
 
-        // stage('Update Kustomize Image Tag') {
-        //     steps {
-        //         script {
-        //             sh 'git clone -b main https://github.com/chinmaya10000/kubernetes-manifest.git'
-        //             dir('kubernetes-manifest') {
-        //                 sh '''
-        //                     git checkout main
+        stage('Update Kustomize Image Tag') {
+            steps {
+                script {
+                    sh 'git clone -b main https://github.com/chinmaya10000/kubernetes-manifest.git'
+                    dir('kubernetes-manifest') {
+                        sh '''
+                            git checkout main
 
-        //                     yq -i "(.images[] | select(.name == \\"solar-system\\") | .newTag) = \\"${IMAGE_TAG}\\"" overlays/dev/kustomization.yaml
-        //                     git config --global user.name "jenkins"
-        //                     git config --global user.email "jenkins@dasher.com"
-        //                     git remote set-url origin https://${GITHUB_TOKEN}@github.com/chinmaya10000/kubernetes-manifest.git
-        //                     git add overlays/dev/kustomization.yaml
-        //                     git commit -m "update solar-system image to ${IMAGE_TAG}"
-        //                     git push -u origin main
-        //                 '''
-        //             }
-        //         }
-        //     }
-        // }
+                            yq -i "(.images[] | select(.name == \\"solar-system\\") | .newTag) = \\"${IMAGE_TAG}\\"" overlays/dev/kustomization.yaml
+                            git config --global user.name "jenkins"
+                            git config --global user.email "jenkins@dasher.com"
+                            git remote set-url origin https://${GITHUB_TOKEN}@github.com/chinmaya10000/kubernetes-manifest.git
+                            git add overlays/dev/kustomization.yaml
+                            git commit -m "update solar-system image to ${IMAGE_TAG}"
+                            git push -u origin main
+                        '''
+                    }
+                }
+            }
+        }
     }
 
-    // post {
-    //     always {
-    //         script {
-    //             if (fileExists('kubernetes-manifest')) {
-    //                 sh 'rm -rf kubernetes-manifest'
-    //             }
-    //         }
+    post {
+        always {
+            script {
+                if (fileExists('kubernetes-manifest')) {
+                    sh 'rm -rf kubernetes-manifest'
+                }
+            }
 
     //         junit allowEmptyResults: true, stdioRetention: '', testResults: 'dependency-check-junit.xml'
     //         junit allowEmptyResults: true, stdioRetention: '', testResults: 'test-results.xml'
@@ -235,6 +235,6 @@ pipeline {
     //         publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-CRITICAL-results.html', reportName: 'Trivy Image Critical Vul Report', reportTitles: '', useWrapperFileDirectly: true])
 
     //         publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-MEDIUM-results.html', reportName: 'Trivy Image Medium Vul Report', reportTitles: '', useWrapperFileDirectly: true])
-    //     }
-    // }
+        }
+    }
 }
