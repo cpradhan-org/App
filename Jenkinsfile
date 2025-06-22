@@ -109,13 +109,13 @@ pipeline {
             steps {
                 script {
                     sh """
-                        trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
+                        trivy image ${IMAGE_NAME}:${IMAGE_TAG} \
                           --severity LOW,MEDIUM,HIGH \
                           --exit-code 0 \
                           --quiet \
                           --format json -o trivy-image-MEDIUM-results.json
 
-                        trivy image chinmayapradhan/orbit-engine:$GIT_COMMIT \
+                        trivy image ${IMAGE_NAME}:${IMAGE_TAG} \
                           --severity CRITICAL \
                           --exit-code 0 \
                           --quiet \
@@ -214,6 +214,44 @@ pipeline {
                 }
             }
         }
+
+        stage('DAST - OWASP ZAP Scan') {
+            steps {
+                script {
+                    sh '''
+                        chmod -R 777 $(pwd)
+                        docker run --rm -v $(pwd):/zap/wrk/:rw ghcr.io/zaproxy/zaproxy zap-api-scan.py \
+                            -t http://134.209.155.222:30000/api-docs/ \
+                            -f openapi \
+                            -r zap_report.html \
+                            -w zap_report.md \
+                            -J zap_json_report.json \
+                            -x zap_xml_report.xml || true
+                    '''
+                }
+            }
+        }
+
+        stage('Upload - AWS S3') {
+            steps {
+                script {
+                    withAWS(credentials: 'aws-creds', region: 'us-east-2') {
+                        sh '''
+                           ls -ltr
+                           mkdir reports-$BUILD_ID
+                           cp -rf coverage/ reports-$BUILD_ID
+                           cp dependency*.* test-results.xml trivy*.* zap*.* reports-$BUILD_ID
+                           ls -ltr reports-$BUILD_ID
+                        '''
+                        s3Upload(
+                            file:"reports-$BUILD_ID",
+                            bucket:'orbit-engine-jenkins-reports',
+                            path:"jenkins-$BUILD_ID/"
+                        )
+                    }
+                }
+            }
+        }
     }
 
     post {
@@ -228,6 +266,7 @@ pipeline {
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'test-results.xml'
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-CRITICAL-results.xml'
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-MEDIUM-results.xml'
+            junit allowEmptyResults: true, testResults: 'zap_xml_report.xml'
 
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'dependency-check-jenkins.html', reportName: 'Dependency Check HTML Report', reportTitles: '', useWrapperFileDirectly: true])
 
@@ -235,6 +274,8 @@ pipeline {
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-CRITICAL-results.html', reportName: 'Trivy Image Critical Vul Report', reportTitles: '', useWrapperFileDirectly: true])
 
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-MEDIUM-results.html', reportName: 'Trivy Image Medium Vul Report', reportTitles: '', useWrapperFileDirectly: true])
+
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'zap_report.html', reportName: 'DAST - OWASP ZAP Report', reportTitles: '', useWrapperFileDirectly: true])
         }
     }
 }
