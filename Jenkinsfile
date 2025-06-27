@@ -164,7 +164,7 @@ pipeline {
                 script {
                     sshagent(['ec2-ssh-key']) {
                         sh """
-                            ssh -o StrictHostKeyChecking=no ec2-user@3.141.190.157 '
+                            ssh -o StrictHostKeyChecking=no ec2-user@3.129.253.9 '
                                 aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin ${ECR_REPO_URL}
                                 docker pull ${IMAGE_NAME}:${IMAGE_TAG}
                                 if sudo docker ps -a | grep -q "solar-system"; then
@@ -219,14 +219,11 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        chmod -R 777 $(pwd)
-                        docker run --rm -v $(pwd):/zap/wrk/:rw ghcr.io/zaproxy/zaproxy zap-api-scan.py \
-                            -t http://134.209.155.222:30000/api-docs/ \
-                            -f openapi \
+                        docker run -u zap -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-api-scan.py \
+                            -t http://3.129.253.9:3000/api-docs/ \
                             -r zap_report.html \
-                            -w zap_report.md \
-                            -J zap_json_report.json \
-                            -x zap_xml_report.xml || true
+                            -x zap_xml_report.xml \
+                            -J zap_json_report.json || true
                     '''
                 }
             }
