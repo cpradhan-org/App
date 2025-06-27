@@ -215,20 +215,6 @@ pipeline {
             }
         }
 
-        stage('DAST - OWASP ZAP Scan') {
-            steps {
-                script {
-                    sh '''
-                        docker run -u zap -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-api-scan.py \
-                            -t http://3.129.253.9:3000/api-docs/ \
-                            -r zap_report.html \
-                            -x zap_xml_report.xml \
-                            -J zap_json_report.json || true
-                    '''
-                }
-            }
-        }
-
         stage('Upload - AWS S3') {
             steps {
                 script {
@@ -237,7 +223,7 @@ pipeline {
                            ls -ltr
                            mkdir reports-$BUILD_ID
                            cp -rf coverage/ reports-$BUILD_ID
-                           cp dependency*.* test-results.xml trivy*.* zap*.* reports-$BUILD_ID
+                           cp dependency*.* test-results.xml trivy*.* reports-$BUILD_ID
                            ls -ltr reports-$BUILD_ID
                         '''
                         s3Upload(
@@ -263,7 +249,6 @@ pipeline {
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'test-results.xml'
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-CRITICAL-results.xml'
             junit allowEmptyResults: true, stdioRetention: '', testResults: 'trivy-image-MEDIUM-results.xml'
-            junit allowEmptyResults: true, testResults: 'zap_xml_report.xml'
 
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'dependency-check-jenkins.html', reportName: 'Dependency Check HTML Report', reportTitles: '', useWrapperFileDirectly: true])
 
@@ -271,8 +256,6 @@ pipeline {
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-CRITICAL-results.html', reportName: 'Trivy Image Critical Vul Report', reportTitles: '', useWrapperFileDirectly: true])
 
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'trivy-image-MEDIUM-results.html', reportName: 'Trivy Image Medium Vul Report', reportTitles: '', useWrapperFileDirectly: true])
-
-            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: './', reportFiles: 'zap_report.html', reportName: 'DAST - OWASP ZAP Report', reportTitles: '', useWrapperFileDirectly: true])
         }
     }
 }
