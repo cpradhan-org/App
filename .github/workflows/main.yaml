@@ -105,3 +105,15 @@ jobs:
           echo Username - $MONGO_USERNAME
           echo Password - $MONGO_PASSWORD
           npm test
+      
+      - name: Code Coverage
+        continue-on-error: true
+        run: npm run coverage
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          path: |
+            coverage/
+            coverage-summary.json
+            coverage/lcov.info
