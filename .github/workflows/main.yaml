@@ -82,3 +82,26 @@ jobs:
           path: reports/
           retention-days: 30
     
+  unit-tests:
+    name: Run Unit Tests with Coverage
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout Repository 
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install NPM Dependencies
+        run: npm install --no-audit
+
+      - name: Run Unit Tests
+        run: |
+          echo Colon-Separated - $MONGO_DB_CREDS
+          echo Username - $MONGO_USERNAME
+          echo Password - $MONGO_PASSWORD
+          npm test
