@@ -17,9 +17,10 @@ env:
   NODE_VERSION: '20'
 
 jobs:
-  dependency-check:
-    name: 🔍 Dependency & Security Check
+  setup:
+    name: Setup & Install Dependencies
     runs-on: ubuntu-latest
+    needs: setup
     steps:
 
       - name: Checkout Repository 
@@ -32,13 +33,30 @@ jobs:
           cache: 'npm'
 
       - name: Install NPM Dependencies
-        run: npm ci --no-audit
+        run: npm install --no-audit
 
       - name: Run npm Audit for Critical Vulnerabilities
         run: |
           npm audit --audit-level=critical || true
           echo $?
-      
+
+  dependency-check:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout Repository 
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install NPM Dependencies
+        run: npm install --no-audit
+
       - name: Run OWASP Dependency-Check
         uses: dependency-check/Dependency-Check_Action@main
         with:
@@ -63,3 +81,4 @@ jobs:
           name: dependency-check-results
           path: reports/
           retention-days: 30
+    
