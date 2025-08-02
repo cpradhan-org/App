@@ -197,15 +197,15 @@ pipeline {
         stage('Update Kustomize Image Tag') {
             steps {
                 script {
-                    sh 'git clone -b main https://github.com/chinmaya10000/kubernetes-manifest.git'
-                    dir('kubernetes-manifest') {
+                    sh 'git clone -b main https://github.com/cpradhan-org/gitops-k8s-manifests.git'
+                    dir('gitops-k8s-manifests') {
                         sh '''
                             git checkout main
 
                             yq -i "(.images[] | select(.name == \\"solar-system\\") | .newTag) = \\"${IMAGE_TAG}\\"" overlays/dev/kustomization.yaml
                             git config --global user.name "jenkins"
                             git config --global user.email "jenkins@dasher.com"
-                            git remote set-url origin https://${GITHUB_TOKEN}@github.com/chinmaya10000/kubernetes-manifest.git
+                            git remote set-url origin https://${GITHUB_TOKEN}@github.com/cpradhan-org/gitops-k8s-manifests.git
                             git add overlays/dev/kustomization.yaml
                             git commit -m "update solar-system image to ${IMAGE_TAG}"
                             git push -u origin main
@@ -240,8 +240,8 @@ pipeline {
     post {
         always {
             script {
-                if (fileExists('kubernetes-manifest')) {
-                    sh 'rm -rf kubernetes-manifest'
+                if (fileExists('gitops-k8s-manifests')) {
+                    sh 'rm -rf gitops-k8s-manifests'
                 }
             }
 
